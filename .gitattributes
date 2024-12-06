@@ -1,0 +1,5 @@
+# Exclude all HTML files from language statistics
+*.html linguist-generated=true
+
+# Exclude all Jupyter Notebook files from language statistics
+*.ipynb linguist-generated=true
