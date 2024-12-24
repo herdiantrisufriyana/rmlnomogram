@@ -1,0 +1,132 @@
+---
+title: "Quick start"
+author:
+  - name: Herdiantri Sufriyana
+    affiliation:
+    - &gibi Graduate Institute of Biomedical Informatics, College of Medical
+      Science and Technology, Taipei Medical University, Taipei, Taiwan. 
+    - Department of Medical Physiology, Faculty of Medicine, Universitas
+      Nahdlatul Ulama Surabaya, Surabaya, Indonesia. 
+    email: herdi@tmu.edu.tw
+  - name: Emily Chia-Yu Su
+    affiliation:
+    - *gibi
+    - Clinical Big Data Research Center, Taipei Medical University
+      Hospital, Taipei, Taiwan. 
+    - Research Center for Artificial Intelligence in Medicine, Taipei Medical
+      University, Taipei, Taiwan. 
+date: "2024-12-24"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+vignette: >
+  %\VignetteIndexEntry{Quick Start}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+# 1 - Categorical predictors and binary outcome without predicted probability
+
+```{r Example 1 - Load necessary packages}
+library(tidyverse)
+library(caret)
+library(iml)
+```
+
+```{r Example 1 - Train a prediction model}
+# Load dataset
+data("mtcars")
+
+# Preprocess for training a classifier
+mtcars$am <- factor(mtcars$am, levels = c(0, 1), labels = c("Auto", "Manual"))
+
+# Convert some numerical features to categorical for demonstration
+mtcars$cyl <- factor(mtcars$cyl)
+mtcars$vs <- factor(mtcars$vs)
+
+# Using tidyverse to filter only factor columns
+mtcars <- select(mtcars, where(is.factor))
+
+# Create dummy variables for all factor variables, excluding the target variable
+dummy_vars <- dummyVars(am ~ ., data = mtcars) |> 
+  predict(newdata = mtcars)
+
+# Combine binarized predictors with the target variable
+mtcars_binarized <- as_tibble(dummy_vars) |> 
+  mutate(am = mtcars$am)
+
+# Train a random forest model using the full dataset
+model <- train(
+  am ~ ., 
+  data = mtcars_binarized, 
+  method = "rf", 
+  trControl = trainControl(method = "none", classProbs = TRUE)
+)
+```
+
+```{r Example 1 - Entire dataset of combinations of the selected features}
+# Extract feature names used in the trained model from caret model object
+caret_features <- model$finalModel$xNames
+
+# Modify the training dataset to include only the model features
+mtcars_selected <- mtcars_binarized[, caret_features]
+
+# Generate all possible combinations
+feature_combinations <- expand.grid(lapply(mtcars_selected, unique))
+
+head(feature_combinations)
+```
+
+```{r Example 1 - Predict probabilities for the entire dataset}
+pred_probs <- predict(model, feature_combinations, type = "prob") |>
+  select(prob = levels(mtcars_binarized$am)[2])
+
+head(pred_probs)
+```
+
+```{r Example 1 - Compute SHAP values for the entire dataset}
+# Prepare data and model for SHAP value calculation using iml
+X <- mtcars_binarized[, -which(names(mtcars_binarized) == "am")]  # Predictor data
+
+# Create a predictor object
+predictor <- Predictor$new(model = model, data = X)
+
+# Calculate SHAP values
+shap_values <- list()
+for(i in seq(nrow(feature_combinations))){
+  shapley <-  Shapley$new(predictor, x.interest = feature_combinations[i, ])
+  shap_values[[i]] <-shapley$results
+}
+names(shap_values) <- seq(nrow(feature_combinations))
+shap_values <- reduce(imap(shap_values, ~ mutate(.x, i = .y)), rbind) |>
+  filter(class == levels(mtcars_binarized$am)[2]) |>
+  select(i, feature, phi) |>
+  spread(feature, phi) |>
+  arrange(as.numeric(i)) |>
+  column_to_rownames(var = "i")
+
+head(shap_values)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
