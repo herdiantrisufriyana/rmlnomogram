@@ -1,4 +1,4 @@
-# Project template
+# mlnomogram: An R package to construct nomogram for a machine learning model
 
 ## System requirements
 
@@ -6,12 +6,10 @@ Install Docker desktop once in your machine. Start the service every time you bu
 
 ## Installation guide
 
-Change `project_template` to the project image name.
-
 Build the project image once for a new machine (currently support AMD64 and ARM64).
 
 ```{bash}
-docker build -t project_template --load .
+docker build -t rmlnomogram --load .
 ```
 
 Run the container every time you start working on the project. Change left-side port numbers for either Rstudio or Jupyter lab if any of them is already used by other applications.
@@ -19,13 +17,13 @@ Run the container every time you start working on the project. Change left-side 
 In terminal:
 
 ```{bash}
-docker run -d -p 8787:8787 -p 8888:8888 -v "$(pwd)":/home/rstudio/project --name project_template_container project_template
+docker run -d -p 8787:8787 -p 8888:8888 -v "$(pwd)":/home/rstudio/project --name rmlnomogram_container rmlnomogram
 ```
 
 In command prompt:
 
 ```{bash}
-docker run -d -p 8787:8787 -p 8888:8888 -v "%cd%":/home/rstudio/project --name project_template_container project_template
+docker run -d -p 8787:8787 -p 8888:8888 -v "%cd%":/home/rstudio/project --name rmlnomogram_container rmlnomogram
 ```
 
 ## Instructions for use
@@ -45,7 +43,7 @@ Your working directory is ~/project.
 Use terminal/command prompt to run the container terminal.
 
 ```{bash}
-docker exec -it project_template_container bash
+docker exec -it rmlnomogram_container bash
 ```
 
 In the container terminal, run jupyter lab using this line of codes.
