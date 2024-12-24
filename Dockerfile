@@ -62,6 +62,11 @@ RUN R -e "BiocManager::install('kableExtra', ask=FALSE, update=FALSE, force=TRUE
 RUN R -e "BiocManager::install('ggpubr', ask=FALSE, update=FALSE, force=TRUE)"
 RUN R -e "BiocManager::install('dslabs', ask=FALSE, update=FALSE, force=TRUE)"
 
+# Install additional Python libraries and R packages, chronologically
+RUN R -e "BiocManager::install('caret', ask=FALSE, update=FALSE, force=TRUE)"
+RUN R -e "BiocManager::install('randomForest', ask=FALSE, update=FALSE, force=TRUE)"
+RUN R -e "BiocManager::install('iml', ask=FALSE, update=FALSE, force=TRUE)"
+
 # Set the working directory to ~/project on R session start
 RUN echo 'setwd("~/project")' >> /home/rstudio/.Rprofile
 
