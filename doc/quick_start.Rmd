@@ -38,7 +38,7 @@ library(caret)
 library(iml)
 ```
 
-# 1 - Categorical predictors and binary outcome without predicted probability
+# 1 - Categorical predictors and binary outcome without probability
 
 ```{r Example 1 - Train a prediction model}
 # Load dataset
@@ -50,6 +50,7 @@ mtcars$am <- factor(mtcars$am, levels = c(0, 1), labels = c("Auto", "Manual"))
 # Convert some numerical features to categorical for demonstration
 mtcars$cyl <- factor(mtcars$cyl)
 mtcars$vs <- factor(mtcars$vs)
+mtcars$qsec <- factor(as.integer(mtcars$qsec >= 18))
 
 # Using tidyverse to filter only factor columns
 mtcars <- select(mtcars, where(is.factor))
@@ -61,9 +62,11 @@ dummy_vars <- dummyVars(am ~ ., data = mtcars) |>
 # Combine binarized predictors with the target variable
 mtcars_binarized <- as.data.frame(dummy_vars) |>
   mutate_all(as.factor) |>
-  mutate(am = mtcars$am)
+  mutate(am = mtcars$am) |>
+  select(-vs.0, -cyl.4, -qsec.0)
 
 # Train a random forest model using the full dataset
+set.seed(1)
 model <- train(
   am ~ ., 
   data = mtcars_binarized, 
@@ -108,7 +111,7 @@ nomogram_shaps <- list()
 
 for(i in seq(nrow(nomogram_features))){
   shapley <-  Shapley$new(predictor, x.interest = nomogram_features[i, ])
-  nomogram_shaps[[i]] <-shapley$results
+  nomogram_shaps[[i]] <- shapley$results
 }
 
 names(nomogram_shaps) <- seq(nrow(nomogram_features))
@@ -133,145 +136,103 @@ nomogram <- create_nomogram(nomogram_features, nomogram_probs, nomogram_shaps)
 nomogram
 ```
 
-# 2 - Categorical predictors and binary outcome with predicted probability
+# 2 - Categorical predictors and binary outcome with probability
 
-```{r Example 2 - Train a prediction model}
-# Load dataset
+```{r Example 2 - Create nomogram}
+nomogram2 <-
+  create_nomogram(
+    nomogram_features, nomogram_probs, nomogram_shaps
+    , prob = TRUE
+  )
+```
+
+```{r figure-2, echo=FALSE, fig.height=4.5, fig.width=9}
+nomogram2
+```
+
+# 3 - Categorical and 1 numerical predictors and binary outcome with probability
+
+```{r Example 3 - Train a prediction model}
+# Reload original dataset
 data("mtcars")
 
-# Preprocess for training a classifier
-mtcars$am <- factor(mtcars$am, levels = c(0, 1), labels = c("Auto", "Manual"))
+# Round to 0 decimal to reduce possible combinations later
+mtcars <- mutate(mtcars, qsec = round(qsec, 0))
 
-# Convert some numerical features to categorical for demonstration
-mtcars$cyl <- factor(mtcars$cyl)
-mtcars$vs <- factor(mtcars$vs)
-
-# Using tidyverse to filter only factor columns
-mtcars <- select(mtcars, where(is.factor))
-
-# Create dummy variables for all factor variables, excluding the target variable
-dummy_vars <- dummyVars(am ~ ., data = mtcars) |> 
-  predict(newdata = mtcars)
-
-# Combine binarized predictors with the target variable
-mtcars_binarized <- as.data.frame(dummy_vars) |>
-  mutate_all(as.factor) |>
-  mutate(am = mtcars$am)
-
-# Choose 4 binarized predictors
-mtcars_binarized <- select(mtcars_binarized, cyl.8, vs.1, am)
+# Add 1 numerical predictor to binarized predictors with the target variable
+mtcars_mixed <- cbind(mtcars["qsec"], select(mtcars_binarized, -qsec.1))
 
 # Train a random forest model using the full dataset
-model <- train(
+set.seed(1)
+model2 <- train(
   am ~ ., 
-  data = mtcars_binarized, 
+  data = mtcars_mixed, 
   method = "rf", 
   trControl = trainControl(method = "none", classProbs = TRUE)
 )
 ```
 
-```{r Example 2 - Entire dataset of combinations of the selected features}
+```{r Example 3 - Entire dataset of combinations of the selected features}
 # Extract feature names used in the trained model from caret model object
-caret_features <- str_remove_all(model$finalModel$xNames, "1$")
+caret_features2 <- str_remove_all(model2$finalModel$xNames, "1$")
 
 # Modify the training dataset to include only the model features
-mtcars_selected <- mtcars_binarized[, caret_features]
+mtcars_selected2 <- mtcars_mixed[, caret_features2]
 
 # Generate all possible feature combinations for nomogram
-nomogram_features <- expand.grid(lapply(mtcars_selected, unique))
+nomogram_features2 <-
+  select_if(mtcars_selected2, is.numeric) |>
+  lapply(\(x) seq(min(x), max(x))) |>
+  c(lapply(select_if(mtcars_selected2, is.factor), unique)) |>
+  expand.grid()
 ```
 
 ```{r table-4, echo=FALSE}
-head(nomogram_features)
+head(nomogram_features2)
 ```
 
-```{r Example 2 - Predict probabilities for the entire dataset}
-nomogram_probs <- predict(model, nomogram_features, type = "prob") |>
-  select(prob = levels(mtcars_binarized$am)[2])
+```{r Example 3 - Predict probabilities for the entire dataset}
+nomogram_probs2 <- predict(model2, nomogram_features2, type = "prob") |>
+  select(prob = levels(mtcars_mixed$am)[2])
 ```
 
-```{r table-5, echo=FALSE}
-head(nomogram_probs)
-```
-
-```{r Example 2 - Compute SHAP values for the entire dataset}
+```{r Example 3 - Compute SHAP values for the entire dataset}
 # Prepare data and model for SHAP value calculation using iml
-X <- mtcars_binarized[, -which(names(mtcars_binarized) == "am")]
+X2 <- mtcars_mixed[, -which(names(mtcars_mixed) == "am")]
 
 # Create a predictor object
-predictor <- Predictor$new(model = model, data = X)
+predictor2 <- Predictor$new(model = model2, data = X2)
 
 # Calculate SHAP values
-nomogram_shaps <- list()
+nomogram_shaps2 <- list()
 
-for(i in seq(nrow(nomogram_features))){
-  shapley <-  Shapley$new(predictor, x.interest = nomogram_features[i, ])
-  nomogram_shaps[[i]] <-shapley$results
+for(i in seq(nrow(nomogram_features2))){
+  shapley2 <-  Shapley$new(predictor2, x.interest = nomogram_features2[i, ])
+  nomogram_shaps2[[i]] <- shapley2$results
 }
 
-names(nomogram_shaps) <- seq(nrow(nomogram_features))
+names(nomogram_shaps2) <- seq(nrow(nomogram_features2))
 
-nomogram_shaps <- reduce(imap(nomogram_shaps, ~ mutate(.x, i = .y)), rbind) |>
-  filter(class == levels(mtcars_binarized$am)[2]) |>
+nomogram_shaps2 <- reduce(imap(nomogram_shaps2, ~ mutate(.x, i = .y)), rbind) |>
+  filter(class == levels(mtcars_mixed$am)[2]) |>
   select(i, feature, phi) |>
   spread(feature, phi) |>
   arrange(as.numeric(i)) |>
   column_to_rownames(var = "i")
 ```
 
-```{r table-6, echo=FALSE}
-head(nomogram_shaps)
+```{r Example 3 - Create nomogram}
+nomogram3 <-
+  create_nomogram(
+    nomogram_features2, nomogram_probs2, nomogram_shaps2
+    , prob = TRUE
+  )
 ```
 
-```{r Example 2 - Create nomogram}
-nomogram <- create_nomogram(nomogram_features, nomogram_probs, nomogram_shaps)
+```{r figure-3, echo=FALSE, fig.height=6, fig.width=9}
+nomogram3
 ```
 
-```{r figure-2, echo=FALSE, fig.height=2, fig.width=9}
-ggarrange(
-  nomogram$input |>
-    mutate(value = factor(value)) |>
-    ggplot(aes(feature, i)) +
-    geom_tile(aes(fill = value), color = "white") +
-    scale_x_discrete("Feature") +
-    scale_fill_discrete("Predictor\nvalue") +
-    theme(
-      axis.title.x = element_text(size = 8)
-      , axis.text.x = element_text(size = 7)
-      , axis.title.y = element_blank()
-      , axis.text.y = element_blank()
-      , legend.position = "left"
-    )
-  , nomogram$input |>
-    ggplot(aes(prob, i)) +
-    geom_vline(xintercept = 0.5, lty = 2) +
-    geom_path() +
-    scale_x_continuous("Outcome ->") +
-    scale_y_continuous("Feature") +
-    theme(
-      axis.title.x = element_text(size = 8)
-      , axis.text.x = element_text(size = 7)
-      , axis.title.y = element_blank()
-      , axis.text.y = element_text(size = 7)
-      , strip.text.y = element_blank()
-    )
-  , nomogram$input |>
-    ggplot(aes(shap, i)) +
-    geom_vline(xintercept = 0, lty = 2) +
-    geom_path(aes(color = feature), show.legend = FALSE) +
-    scale_x_continuous("Impact on fatigue ->") +
-    scale_color_discrete("") +
-    theme(
-      axis.title.x = element_text(size = 8)
-      , axis.text.x = element_text(size = 7)
-      , axis.title.y = element_blank()
-      , axis.text.y = element_blank()
-      , strip.text.y = element_blank()
-    )
-  , nrow = 1, ncol = 3
-  , widths = c(3, 2.5, 2.5)
-)
-```
 
 
 
