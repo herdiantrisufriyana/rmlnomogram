@@ -1,24 +1,50 @@
-create_nomogram <- function(sample_features, sample_prob, feature_shap, threshold = 0.5, prob = FALSE, verbose = FALSE){
+create_nomogram <- function(sample_features, sample_output, feature_exp = NULL, threshold = 0.5, prob = FALSE, est = FALSE, verbose = FALSE){
   # Change feature categories features to binaries
   sample_features0 <- sample_features
   sample_features <- mutate_if(sample_features, is.factor, \(x) as.numeric(x) - 1)
   
-  # Combine feature values with predicted probabilities
-  sample_data <- cbind(sample_prob, sample_features)
+  # Combine feature values with outputs
+  sample_data <- cbind(sample_output, sample_features)
   
-  # Combine data and sort feature values sorted by SHAP normalized magnitudes
+  if(is.null(feature_exp)){
+    feature_exp_input_null <- TRUE
+    
+    feature_exp <-
+      sample_data |>
+      select(-output) |>
+      colnames()
+    
+    feature_exp <-
+      `names<-`(feature_exp, feature_exp) |>
+      imap(~ tidy(lm(as.formula(paste0("output~", .x)), data = sample_data))) |>
+      imap(~ mutate(.x, feature = .y, exp = exp(estimate + std.error))) |>
+      reduce(rbind) |>
+      filter(term != "(Intercept)") |>
+      select(feature, exp) |>
+      mutate(feature = factor(feature, feature_exp)) |>
+      spread(feature, exp)
+    
+    feature_exp <-
+      data.frame(i = seq(nrow(sample_data))) |>
+      cbind(feature_exp) |>
+      select(-i)
+  }else{
+    feature_exp_input_null <- FALSE
+  }
+  
+  # Combine data and sort feature values sorted by exp normalized magnitudes
   nomogram_data <-
     sample_data |>
     mutate(i = seq(nrow(sample_data))) |>
-    gather(feature, value, -i, -prob) |>
+    gather(feature, value, -i, -output) |>
     left_join(
-      feature_shap |>
-        mutate(i = seq(nrow(feature_shap))) |>
-        gather(feature, shap, -i) 
+      feature_exp |>
+        mutate(i = seq(nrow(feature_exp))) |>
+        gather(feature, exp, -i) 
       , by = join_by(i, feature)
     ) |>
     group_by(feature) |>
-    mutate(magnitude = max(shap)) |>
+    mutate(magnitude = max(exp)) |>
     ungroup() |>
     mutate(
       norm_magnitude =
@@ -28,59 +54,65 @@ create_nomogram <- function(sample_features, sample_prob, feature_shap, threshol
     arrange(i, feature) |>
     mutate(factor_group = NA)
   
-  if(prob){
-    nomogram_data_resorted <-
+  sorted_factor_names <-
+    levels(nomogram_data$feature)[
+      levels(nomogram_data$feature)
+      %in% colnames(select_if(sample_features0, is.factor))
+    ]
+  
+  if(prob | est){
+    nomogram_data_factor_spread <-
       nomogram_data |>
-      left_join(
-        nomogram_data |>
-          arrange(feature, value) |>
-          select(i) |>
-          unique() |>
-          mutate(i2 = seq(n()))
-        , by = join_by(i)
-      ) |>
-      mutate(i = i2) |>
-      select(-i2) |>
-      arrange(i, feature, value)
+      filter(feature %in% sorted_factor_names) |>
+      select(i, feature, value) |>
+      spread(feature, value) |>
+      arrange_at(sorted_factor_names) |>
+      mutate(i2 = seq(n()))
     
     num_predictor <- sum(sapply(sample_features0, is.numeric))
     
     if(num_predictor == 1){
-      nomogram_data_factor_spread <-
-        nomogram_data_resorted |>
-        filter(feature %in% colnames(select_if(sample_features0, is.factor))) |>
-        select(i, feature, value) |>
-        spread(feature, value)
-
       nomogram_data_factor_group <-
         nomogram_data_factor_spread |>
-        select(-i) |>
+        select(-i, -i2) |>
         unique() |>
-        mutate(factor_group = seq(n()))
-
+        mutate(factor_group = rev(seq(n())))
+      
       nomogram_data_resorted <-
-        nomogram_data_resorted |>
+        nomogram_data |>
         select(-factor_group) |>
         left_join(
           nomogram_data_factor_spread |>
             left_join(
               nomogram_data_factor_group
-              , by = setdiff(colnames(nomogram_data_factor_spread), "i")
+              , by =
+                setdiff(colnames(nomogram_data_factor_spread), c("i", "i2"))
             ) |>
-            select(i, factor_group)
+            select(i, i2, factor_group)
           , by = join_by(i)
-        )
+        ) |>
+        mutate(i = i2) |>
+        select(-i2) |>
+        arrange(i, feature, value)
+    }else{
+      nomogram_data_resorted <-
+        nomogram_data |>
+        select(-factor_group) |>
+        left_join(
+          select(nomogram_data_factor_spread, i, i2)
+          , by = join_by(i)
+        ) |>
+        mutate(i = i2) |>
+        select(-i2) |>
+        arrange(i, feature, value)
     }
     
     factor_grid_plot <-
       nomogram_data_resorted |>
-      filter(feature %in% colnames(select_if(sample_features0, is.factor)))
+      filter(feature %in% sorted_factor_names)
     
     if(num_predictor == 1){
-      factor_grid_plot <-
-        factor_grid_plot |>
-        mutate(i = 1) |>
-        unique()
+      factor_grid_plot <- unique(mutate(factor_grid_plot, i = 1))
     }
     
     factor_grid_plot <-
@@ -103,9 +135,7 @@ create_nomogram <- function(sample_features, sample_prob, feature_shap, threshol
         facet_grid(factor_group ~ ., scales = "free_y", space = "free_y")
     }
     
-    factor_grid_plot <-
-      factor_grid_plot +
-      scale_x_discrete("Predictor")
+    factor_grid_plot <- factor_grid_plot + scale_x_discrete("Predictor")
     
     if(num_predictor != 1){
       factor_grid_plot <-
@@ -136,58 +166,54 @@ create_nomogram <- function(sample_features, sample_prob, feature_shap, threshol
     }
     
     if(num_predictor == 1){
-      prob_plot <-
+      output_plot <-
         nomogram_data_resorted |>
         filter(feature %in% colnames(select_if(sample_features0, is.numeric))) |>
-        ggplot(aes(prob, value))
+        ggplot(aes(output, value))
     }else{
-      prob_plot <-
-        nomogram_data_resorted |>
-        ggplot(aes(prob, i))
+      output_plot <- ggplot(nomogram_data_resorted, aes(output, i))
     }
     
-    prob_plot <-
-      prob_plot +
-      geom_vline(xintercept = 0.5, lty = 2) +
-      geom_path()
+    if(!est){
+      output_plot <- output_plot + geom_vline(xintercept = threshold, lty = 2)
+    }
+    
+    output_plot <- output_plot + geom_path()
     
     if(num_predictor == 1){
-      prob_plot <-
-        prob_plot +
+      output_plot <-
+        output_plot +
         facet_grid(factor_group ~ ., scales = "free_y", space = "free_y")
     }
     
-    prob_plot <-
-      prob_plot +
-      scale_x_continuous("Outcome ->")
+    output_plot <-
+      output_plot + scale_x_continuous(ifelse(est, "Outcome", "Outcome ->"))
     
     if(num_predictor == 1){
-      prob_plot <-
-        prob_plot +
+      output_plot <-
+        output_plot +
         ylab(colnames(select_if(sample_features0, is.numeric)))
     }else{
-      prob_plot <-
-        prob_plot +
+      output_plot <-
+        output_plot +
         scale_y_continuous(
           breaks = seq(max(nomogram_data$i))
           , limits = c(min(nomogram_data$i) - 0.5, max(nomogram_data$i) + 0.5)
         )
     }
     
-    prob_plot <-
-      prob_plot +
+    output_plot <-
+      output_plot +
       theme(
         axis.title.x = element_text(size = 8)
         , axis.text.x = element_text(size = 7)
       )
     
     if(num_predictor == 1){
-      prob_plot <-
-        prob_plot +
-        theme(strip.text.y = element_blank())
+      output_plot <- output_plot + theme(strip.text.y = element_blank())
     }else{
-      prob_plot <-
-        prob_plot +
+      output_plot <-
+        output_plot +
         theme(
           panel.grid.minor.y = element_blank()
           , axis.title.y = element_blank()
@@ -196,82 +222,83 @@ create_nomogram <- function(sample_features, sample_prob, feature_shap, threshol
         )
     }
     
-    shap_plot <- nomogram_data_resorted
-    
-    if(num_predictor == 1){
-      shap_plot <-
-        shap_plot |>
-        left_join(
-          nomogram_data_resorted |>
-            filter(
-              feature %in% colnames(select_if(sample_features0, is.numeric))
-            ) |>
-            select(i, i2 = value) |>
-            unique()
-          , by = join_by(i)
-        ) |>
-        mutate(i = i2) |>
-        select(-i2) |>
-        arrange(i, feature, value) |>
-        mutate(factor_group = ifelse(is.na(factor_group), 1, factor_group))
-    }
-    
-    shap_plot <-
-      shap_plot |>
-      ggplot(aes(shap, i)) +
-      geom_vline(xintercept = 0, lty = 2) +
-      geom_path(aes(color = feature), na.rm = TRUE)
-    
-    if(num_predictor == 1){
-      shap_plot <-
-        shap_plot +
-        facet_grid(factor_group ~ .)
-    }
-    
-    shap_plot <-
-      shap_plot +
-      scale_x_continuous("Impact on fatigue ->")
-    
-    if(num_predictor != 1){
-      shap_plot <-
-        shap_plot +
-        scale_y_continuous(
-          breaks = seq(max(nomogram_data$i))
-          , limits = c(min(nomogram_data$i) - 0.5, max(nomogram_data$i) + 0.5)
-        )
-    }
-    
-    shap_plot <-
-      shap_plot +
-      scale_color_discrete("Predictor") +
-      theme(
-        axis.title.x = element_text(size = 8)
-        , axis.text.x = element_text(size = 7)
-        , axis.title.y = element_blank()
-        , axis.text.y = element_blank()
-        , axis.ticks.y = element_blank()
+    if(feature_exp_input_null){
+      ggarrange(
+        factor_grid_plot
+        , output_plot
+        , nrow = 1, ncol = 2
+        , widths = c(3, 2)
       )
-    
-    if(num_predictor == 1){
-      shap_plot <-
-        shap_plot +
-        theme(strip.text.y = element_blank())
     }else{
-      shap_plot <-
-        shap_plot +
-        theme(panel.grid.minor.y = element_blank())
+      exp_plot <- nomogram_data_resorted
+      
+      if(num_predictor == 1){
+        exp_plot <-
+          exp_plot |>
+          left_join(
+            nomogram_data_resorted |>
+              filter(
+                feature %in% colnames(select_if(sample_features0, is.numeric))
+              ) |>
+              select(i, i2 = value) |>
+              unique()
+            , by = join_by(i)
+          ) |>
+          mutate(i = i2) |>
+          select(-i2) |>
+          arrange(i, feature, value) |>
+          mutate(factor_group = ifelse(is.na(factor_group), 1, factor_group))
+      }
+      
+      exp_plot <-
+        exp_plot |>
+        ggplot(aes(exp, i)) +
+        geom_vline(xintercept = 0, lty = 2) +
+        geom_path(aes(color = feature), na.rm = TRUE)
+      
+      if(num_predictor == 1){
+        exp_plot <- exp_plot + facet_grid(factor_group ~ .)
+      }
+      
+      exp_plot <- exp_plot + scale_x_continuous("Impact on fatigue ->")
+      
+      if(num_predictor != 1){
+        exp_plot <-
+          exp_plot +
+          scale_y_continuous(
+            breaks = seq(max(nomogram_data$i))
+            , limits = c(min(nomogram_data$i) - 0.5, max(nomogram_data$i) + 0.5)
+          )
+      }
+      
+      exp_plot <-
+        exp_plot +
+        scale_color_discrete("Predictor") +
+        theme(
+          axis.title.x = element_text(size = 8)
+          , axis.text.x = element_text(size = 7)
+          , axis.title.y = element_blank()
+          , axis.text.y = element_blank()
+          , axis.ticks.y = element_blank()
+        )
+      
+      if(num_predictor == 1){
+        exp_plot <- exp_plot + theme(strip.text.y = element_blank())
+      }else{
+        exp_plot <- exp_plot + theme(panel.grid.minor.y = element_blank())
+      }
+      
+      ggarrange(
+        factor_grid_plot
+        , output_plot
+        , exp_plot
+        , nrow = 1, ncol = 3
+        , widths = c(3, 2, 3)
+      )
     }
-    
-    ggarrange(
-      factor_grid_plot
-      , prob_plot
-      , shap_plot
-      , nrow = 1, ncol = 3
-      , widths = c(3, 2, 3)
-    )
   }else{
-    # Sort feature columns by SHAP normalized magnitudes
-    sample_column_names <- c("prob", levels(nomogram_data$feature))
+    # Sort feature columns by exp normalized magnitudes
+    sample_column_names <- c("output", levels(nomogram_data$feature))
     sorted_sample_data <- select(sample_data, all_of(sample_column_names))
     
     # Obtain feature combinations being predicted positive
@@ -303,7 +330,9 @@ create_nomogram <- function(sample_features, sample_prob, feature_shap, threshol
           pos_pred_features[[colseq - 1]] <-
             pos_pred_features[[colseq - 1]] |>
             filter(
-              !str_detect(value, paste0(paste0("^", avail_values), collapse = "|"))
+              !str_detect(
+                value, paste0(paste0("^", avail_values), collapse = "|")
+              )
             )
         }
       }
@@ -312,9 +341,9 @@ create_nomogram <- function(sample_features, sample_prob, feature_shap, threshol
         pos_pred_features[[colseq - 1]] |>
         group_by(variable, value) |>
         summarize(
-          min = suppressWarnings(min(prob))
-          , med = suppressWarnings(median(prob))
-          , max = suppressWarnings(max(prob))
+          min = suppressWarnings(min(output))
+          , med = suppressWarnings(median(output))
+          , max = suppressWarnings(max(output))
           , .groups = "drop"
         ) %>%
         filter(min >= threshold)
@@ -334,7 +363,8 @@ create_nomogram <- function(sample_features, sample_prob, feature_shap, threshol
     
     if(verbose){
       i <- 0
-      pb <- txtProgressBar(min = i, max = ncol(sorted_sample_data) - 1, style = 3)
+      pb <-
+        txtProgressBar(min = i, max = ncol(sorted_sample_data) - 1, style = 3)
     }
     
     for(colseq in rev(seq(2, ncol(sorted_sample_data)))){
@@ -347,7 +377,9 @@ create_nomogram <- function(sample_features, sample_prob, feature_shap, threshol
         mutate(
           value =
             seq(nrow(up_to_colseq)) |>
-            sapply(\(x) paste0(up_to_colseq[x, -1, drop = TRUE], collapse = "/"))
+            sapply(
+              \(x) paste0(up_to_colseq[x, -1, drop = TRUE], collapse = "/")
+            )
           , variable = paste0(colnames(up_to_colseq)[-1], collapse = "/")
         )
       
@@ -358,7 +390,9 @@ create_nomogram <- function(sample_features, sample_prob, feature_shap, threshol
           neg_pred_features[[colseq - 1]] <-
             neg_pred_features[[colseq - 1]] |>
             filter(
-              !str_detect(value, paste0(paste0("^", avail_values), collapse = "|"))
+              !str_detect(
+                value, paste0(paste0("^", avail_values), collapse = "|")
+              )
             )
         }
       }
@@ -367,9 +401,9 @@ create_nomogram <- function(sample_features, sample_prob, feature_shap, threshol
         neg_pred_features[[colseq - 1]] |>
         group_by(variable, value) |>
         summarize(
-          min = suppressWarnings(min(prob))
-          , med = suppressWarnings(median(prob))
-          , max = suppressWarnings(max(prob))
+          min = suppressWarnings(min(output))
+          , med = suppressWarnings(median(output))
+          , max = suppressWarnings(max(output))
           , .groups = "drop"
         ) %>%
         filter(max < threshold)
@@ -396,7 +430,8 @@ create_nomogram <- function(sample_features, sample_prob, feature_shap, threshol
       separate_rows(variable, value, sep = "/") |>
       mutate(
         variable = factor(variable, unique(variable))
-        , variable = paste0('# ', as.numeric(variable), ' ', variable, ' = ____')
+        , variable =
+          paste0('# ', as.numeric(variable), ' ', variable, ' = ____')
         , variable =  factor(variable, rev(unique(variable)))
         , value =
           case_when(
