@@ -1,7 +1,99 @@
+#' Construct nomogram for a machine learning model
+#'
+#' @param sample_features Sample features, a data frame that must only include 
+#' all possible combinations of feature values, where one column is available 
+#' for each feature. A column name 'output' is not allowed.
+#' @sample_output Sample output, a data frame that must only include either 
+#' the predicted probabilities of binary outcome or the estimated values of 
+#' numerical outcome. There is only one column 'output'.
+#' @feature_exp Feature explainability (optional), a data frame that must only 
+#' include feature SHAP value per sample, where one column is available for 
+#' each feature. A column name 'output' is not allowed.
+#' @threshold Threshold, a numeric of length 1 between 0 and 1 for binary 
+#' outcome.
+#' @prob Probability, a logical of length 1 to indicate whether the predicted 
+#' probabilities are shown.
+#' @verbose Verbose, a logical of length 1 to indicate whether a progress bar 
+#' is shown if any.
+#'
+#' @return A ggplot object of nomogram.
+#'
+#' @keywords ml-nomogram
+#'
+#' @export
+#'
+#' @importFrom dplyr mutate_if select mutate filter select spread gather 
+#' join_by group_by ungroup arrange select_if arrange_at n case_when left_join 
+#' all_of summarize
+#' @importFrom purrr imap reduce
+#' @importFrom broom tidy
+#' @importFrom ggplot2 ggplot geom_tile aes facet_grid scale_x_discrete 
+#' scale_y_continuous scale_fill_discrete theme element_blank element_text 
+#' geom_vline geom_path scale_x_continuous scale_color_discrete element_rect 
+#' unit
+#' @importFrom ggpubr ggarrange
+#' @importFrom stringr str_detect str_count
+#' @importFrom tidyr separate_rows
+#'
+#' @examples
+#'
+#' # Binary outcome (or class-wise multinomial outcome)
+#' 
+#' ## 1 - Categorical predictors and binary outcome without probability
+#' data(nomogram_features)
+#' data(nomogram_outputs)
+#' create_nomogram(nomogram_features, nomogram_outputs)
+#'
+#' data(nomogram_shaps)
+#' create_nomogram(nomogram_features, nomogram_outputs, nomogram_shaps)
+#'
+#' ## 2 - Categorical predictors and binary outcome with probability
+#' create_nomogram(nomogram_features, nomogram_outputs, prob = TRUE)
+#' create_nomogram(
+#'   nomogram_features, nomogram_outputs, nomogram_shaps
+#'   , prob = TRUE
+#' )
+#'
+#' ## 3 - Categorical and 1 numerical predictors and binary outcome with probability
+#' data(nomogram_features2)
+#' data(nomogram_outputs2)
+#' create_nomogram(nomogram_features2, nomogram_outputs2, prob = TRUE)
+#'
+#' data(nomogram_shaps2)
+#' create_nomogram(
+#'   nomogram_features2, nomogram_outputs2, nomogram_shaps2
+#'   , prob = TRUE
+#' )
+#' 
+#' # Numerical outcome
+#' 
+#' ## 4 - Categorical predictors and numerical outcome
+#' data(nomogram_features3)
+#' data(nomogram_outputs3)
+#' create_nomogram(nomogram_features3, nomogram_outputs3, est = TRUE)
+#'
+#' data(nomogram_shaps3)
+#' create_nomogram(
+#'   nomogram_features3, nomogram_outputs3, nomogram_shaps3
+#'   , est = TRUE
+#' )
+#' 
+#' ## 5 - Categorical and 1 numerical predictors and numerical outcome
+#' data(nomogram_features4)
+#' data(nomogram_outputs4)
+#' create_nomogram(nomogram_features4, nomogram_outputs4, est = TRUE)
+#'
+#' data(nomogram_shaps4)
+#' create_nomogram(
+#'   nomogram_features4, nomogram_outputs4, nomogram_shaps4
+#'   , est = TRUE
+#' )
+
 create_nomogram <- function(sample_features, sample_output, feature_exp = NULL, threshold = 0.5, prob = FALSE, est = FALSE, verbose = FALSE){
   # Change feature categories features to binaries
   sample_features0 <- sample_features
-  sample_features <- mutate_if(sample_features, is.factor, \(x) as.numeric(x) - 1)
+  sample_features <-
+    mutate_if(sample_features, is.factor, \(x) as.numeric(x) - 1)
   
   # Combine feature values with outputs
   sample_data <- cbind(sample_output, sample_features)
