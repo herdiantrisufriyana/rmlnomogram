@@ -1,4 +1,144 @@
-# mlnomogram: An R package to construct nomogram for a machine learning model
+# rmlnomogram: An R package to construct an explainable nomogram for any machine learning algorithms
+
+`rmlnomogram` is an R package designed to construct an explainable nomogram for a machine learning (ML) model to improve availability of an ML prediction model in addition to a computer application, particularly in a situation where a computer, a mobile phone, an internet connection, or the application accessibility are unreliable. This package enables a nomogram creation for any ML prediction models, which is conventionally limited to only a linear/logistic regression model. This nomogram may indicate the explainability value per feature, e.g., the Shapley additive explanation value, for each individual. However, this package only allows a nomogram creation for a model using categorical without or with single numerical predictors.
+
+
+## Features
+
+- **Construct nomogram from machine learning algorithms**: Construct a nomogram for either binary or continuous outcomes based on provided sample features/predictors and outputs.
+
+- **Incorporate model explainability**: We can also incorporate feature/predictor explainability values, such as SHAP values, for a nomogram with probability.
+
+
+## Installation
+
+You can install t`rmlnomogram` from CRANs with:
+
+```r
+install.packages("rmlnomogram")
+```
+
+You can install the development version of `rmlnomogram` from GitHub with:
+
+```r
+# install.packages("devtools")
+devtools::install_github("herdiantrisufriyana/rmlnomogram")
+```
+
+
+## Quick Start
+
+Load necessary packages.
+
+```r
+library(rmlnomogram)
+```
+
+Nomogram for categorical predictors and binary outcome without probability.
+
+```r
+data(nomogram_features)
+data(nomogram_outputs)
+create_nomogram(nomogram_features, nomogram_outputs)
+```
+
+Nomogram for categorical predictors and binary outcome with probability.
+
+```r
+create_nomogram(nomogram_features, nomogram_outputs, prob = TRUE)
+```
+
+Add model explainability.
+
+```r
+data(nomogram_shaps)
+create_nomogram(nomogram_features, nomogram_outputs, nomogram_shaps, prob = TRUE)
+```
+
+Nomogram for categorical and 1 numerical predictors and binary outcome with probability.
+
+```r
+data(nomogram_features2)
+data(nomogram_outputs2)
+create_nomogram(nomogram_features2, nomogram_outputs2, prob = TRUE)
+```
+
+Add model explainability.
+
+```r
+data(nomogram_shaps2)
+create_nomogram(nomogram_features2, nomogram_outputs2, nomogram_shaps2, prob = TRUE)
+```
+
+Nomogram for categorical predictors and continuous outcome.
+
+```r
+data(nomogram_features3)
+data(nomogram_outputs3)
+create_nomogram(nomogram_features3, nomogram_outputs3, est = TRUE)
+```
+
+Add model explainability.
+
+```r
+data(nomogram_shaps3)
+create_nomogram(nomogram_features3, nomogram_outputs3, nomogram_shaps3, est = TRUE)
+```
+
+Nomogram for categorical and 1 numerical predictors and continuous outcome
+
+```r
+data(nomogram_features4)
+data(nomogram_outputs4)
+create_nomogram(nomogram_features4, nomogram_outputs4, est = TRUE)
+```
+
+Add model explainability.
+
+```r
+data(nomogram_shaps4)
+create_nomogram(nomogram_features4, nomogram_outputs4, nomogram_shaps4, est = TRUE)
+```
+
+
+## Vignettes
+
+Explore detailed examples and methodologies in the following vignettes:
+
+- [**Quick Start**](https://htmlpreview.github.io/?https://github.com/herdiantrisufriyana/rmlnomogram/blob/master/doc/quick_start.html): Get started quickly with the `rmlnomogram` package. This vignette offers a practical introduction to the essential features, providing a quick glimpse into how you can effectively use the package to create nomogram.
+
+- [**Machine Learning Nomogram Exemplar**](https://htmlpreview.github.io/?https://github.com/herdiantrisufriyana/rmlnomogram/blob/master/doc/ml_nomogram_exemplar.html): A guide through basic scenarios demonstrating how to use `rmlnomogram` to create a nomogram.
+
+- [**Reference Manual**](https://github.com/herdiantrisufriyana/rmlnomogram/blob/master/extras/rmlnomogram_0.1.0.pdf): Comprehensive documentation of all functions and features available in `rmlnomogram`. Ideal for detailed reference and advanced use cases.
+
+
+## License
+
+`rmlnomogram` is licensed under the MIT license. See the LICENSE file for more details.
+
+
+# Citation
+
+If you use `rmlnomogram` in your research, please consider citing it:
+
+```bibtex
+@misc{rmlnomogram2025,
+  author = {Herdiantri Sufriyana and Emily Chia-Yu Su},
+  title = {rmlnomogram: An R package to construct an explainable nomogram for any machine learning algorithms},
+  year = {2025},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\\url{https://github.com/herdiantrisufriyana/rmlnomogram}}
+}
+```
+
+
+## Contact
+
+For questions or support, please contact herdi[at]tmu.edu.tw.
+
+
+# Programming Environment
 
 ## System requirements
 
