@@ -105,8 +105,6 @@ create_nomogram(nomogram_features4, nomogram_outputs4, nomogram_shaps4, est = TR
 
 Explore detailed examples and methodologies in the following vignettes:
 
-- [**Quick Start**](https://htmlpreview.github.io/?https://github.com/herdiantrisufriyana/rmlnomogram/blob/master/doc/quick_start.html): Get started quickly with the `rmlnomogram` package. This vignette offers a practical introduction to the essential features, providing a quick glimpse into how you can effectively use the package to create nomogram.
-
 - [**Machine Learning Nomogram Exemplar**](https://htmlpreview.github.io/?https://github.com/herdiantrisufriyana/rmlnomogram/blob/master/doc/ml_nomogram_exemplar.html): A guide through basic scenarios demonstrating how to use `rmlnomogram` to create a nomogram.
 
 - [**Reference Manual**](https://github.com/herdiantrisufriyana/rmlnomogram/blob/master/extras/rmlnomogram_0.1.0.pdf): Comprehensive documentation of all functions and features available in `rmlnomogram`. Ideal for detailed reference and advanced use cases.
