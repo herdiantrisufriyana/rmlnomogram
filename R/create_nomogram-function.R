@@ -1,39 +1,53 @@
 #' Construct nomogram for a machine learning model
 #'
-#' @param sample_features Sample features, a data frame that must only include 
-#' all possible combinations of feature values, where one column is available 
-#' for each feature. A column name 'output' is not allowed.
-#' @sample_output Sample output, a data frame that must only include either 
-#' the predicted probabilities of binary outcome or the estimated values of 
-#' numerical outcome. There is only one column 'output'.
-#' @feature_exp Feature explainability (optional), a data frame that must only 
-#' include feature SHAP value per sample, where one column is available for 
-#' each feature. A column name 'output' is not allowed.
-#' @threshold Threshold, a numeric of length 1 between 0 and 1 for binary 
-#' outcome.
-#' @prob Probability, a logical of length 1 to indicate whether the predicted 
-#' probabilities are shown.
-#' @verbose Verbose, a logical of length 1 to indicate whether a progress bar 
-#' is shown if any.
+#' This function constructs a nomogram for either binary or continuous outcomes 
+#' based on provided sample features and outputs. It can also incorporate 
+#' feature explainability values, such as SHAP values.
 #'
-#' @return A ggplot object of nomogram.
+#' @param sample_features A data frame of feature values where each column 
+#' represents a feature. The data frame must contain all possible combinations 
+#' of feature values. There must be at least one categorical predictor and no 
+#' more than one numerical predictor. Only factor and numeric data types are 
+#' allowed. The column name 'output' is not allowed. Must not contain any NA 
+#' values.
+#' @param sample_output A data frame with one column 'output' containing 
+#' numeric values for either the predicted probabilities (for binary outcomes) 
+#' or estimated values (for continuous outcomes). Must not contain any NA 
+#' values.
+#' @param feature_exp Optional data frame containing feature explainability 
+#' values (e.g., SHAP values) with one column for each feature. The structure 
+#' must match `sample_features` in terms of column names. Each column must 
+#' contain numeric values. Must not contain any NA values.
+#' @param threshold A numeric scalar between 0 and 1, used to define the 
+#' threshold for classifying predicted probabilities into binary outcomes. A 
+#' sample is predicted positive if the predicted probability is equal or 
+#' greater than this threshold.
+#' @param prob A logical scalar indicating if the predicted probabilities 
+#' should be shown in the nomogram.
+#' @param est A logical scalar indicating if the estimated values should be 
+#' shown in the nomogram.
+#' @param verbose A logical scalar indicating whether to show a progress bar if 
+#' it is required.
+#'
+#' @return A ggplot object representing the nomogram.
 #'
 #' @keywords ml-nomogram
 #'
 #' @export
 #'
-#' @importFrom dplyr mutate_if select mutate filter select spread gather 
-#' join_by group_by ungroup arrange select_if arrange_at n case_when left_join 
-#' all_of summarize
+#' @importFrom dplyr mutate_if select mutate filter select join_by group_by 
+#' ungroup arrange select_if arrange_at n case_when left_join all_of summarize
 #' @importFrom purrr imap reduce
 #' @importFrom broom tidy
-#' @importFrom ggplot2 ggplot geom_tile aes facet_grid scale_x_discrete 
+#' @importFrom stats reorder median
+#' @importFrom ggplot2 ggplot geom_tile aes facet_grid scale_x_discrete ylab
 #' scale_y_continuous scale_fill_discrete theme element_blank element_text 
-#' geom_vline geom_path scale_x_continuous scale_color_discrete element_rect 
-#' unit
+#' geom_vline geom_path scale_x_continuous scale_color_discrete 
+#' scale_y_discrete element_rect unit
 #' @importFrom ggpubr ggarrange
 #' @importFrom stringr str_detect str_count
-#' @importFrom tidyr separate_rows
+#' @importFrom tidyr spread gather separate_rows
+#' @importFrom utils txtProgressBar setTxtProgressBar
 #'
 #' @examples
 #'
@@ -44,11 +58,10 @@
 #' data(nomogram_outputs)
 #' create_nomogram(nomogram_features, nomogram_outputs)
 #'
-#' data(nomogram_shaps)
-#' create_nomogram(nomogram_features, nomogram_outputs, nomogram_shaps)
-#'
 #' ## 2 - Categorical predictors and binary outcome with probability
 #' create_nomogram(nomogram_features, nomogram_outputs, prob = TRUE)
+#' 
+#' data(nomogram_shaps)
 #' create_nomogram(
 #'   nomogram_features, nomogram_outputs, nomogram_shaps
 #'   , prob = TRUE
@@ -65,9 +78,9 @@
 #'   , prob = TRUE
 #' )
 #' 
-#' # Numerical outcome
+#' # Continuous outcome
 #' 
-#' ## 4 - Categorical predictors and numerical outcome
+#' ## 4 - Categorical predictors and continuous outcome
 #' data(nomogram_features3)
 #' data(nomogram_outputs3)
 #' create_nomogram(nomogram_features3, nomogram_outputs3, est = TRUE)
@@ -78,7 +91,7 @@
 #'   , est = TRUE
 #' )
 #' 
-#' ## 5 - Categorical and 1 numerical predictors and numerical outcome
+#' ## 5 - Categorical and 1 numerical predictors and continuous outcome
 #' data(nomogram_features4)
 #' data(nomogram_outputs4)
 #' create_nomogram(nomogram_features4, nomogram_outputs4, est = TRUE)
@@ -90,12 +103,139 @@
 #' )
 
 create_nomogram <- function(sample_features, sample_output, feature_exp = NULL, threshold = 0.5, prob = FALSE, est = FALSE, verbose = FALSE){
-  # Change feature categories features to binaries
+  # Input validation
+  ## Input validation for sample_features
+  if (!is.data.frame(sample_features)) {
+    stop("sample_features must be a data frame.")
+  }
+  if (ncol(sample_features) < 1) {
+    stop("sample_features must include at least one column.")
+  }
+  if (
+    any(!sapply(sample_features, function(x) is.factor(x) || is.numeric(x)))
+  ) {
+    stop("All columns in sample_features must be either factor or numeric.")
+  }
+  
+  ## Ensure there is at least one factor and at most one numeric column
+  num_factors <- sum(sapply(sample_features, is.factor))
+  num_numerics <- sum(sapply(sample_features, is.numeric))
+  if (num_factors < 1) {
+    stop(
+      "There must be at least one categorical predictor in sample_features."
+    )
+  }
+  if (num_numerics > 1) {
+    stop(
+      "There must be no more than one numerical predictor in sample_features."
+    )
+  }
+  
+  ## Check for NA in data frames
+  if (anyNA(sample_features)) {
+    stop("sample_features must not contain any NA values.")
+  }
+  if (anyNA(sample_output)) {
+    stop("sample_output must not contain any NA values.")
+  }
+  if (!is.null(feature_exp) && anyNA(feature_exp)) {
+    stop("feature_exp must not contain any NA values.")
+  }
+  
+  # Calculate the number of expected combinations
+  expected_combinations <- prod(sapply(sample_features, function(col) {
+    if (is.factor(col)) {
+      return(length(levels(col)))
+    } else {
+      return(length(unique(col)))
+    }
+  }))
+  
+  if (nrow(sample_features) != expected_combinations) {
+    stop(
+      paste0(
+        "sample_features must include all possible combinations of the "
+        , "feature values."
+      )
+    )
+  }
+  
+  ## Validate sample_output
+  if (!is.data.frame(sample_output)) {
+    stop("sample_output must be a data frame.")
+  }
+  if (!identical(names(sample_output), "output")) {
+    stop("sample_output must contain only one column named 'output'.")
+  }
+  if (!is.numeric(sample_output$output)) {
+    stop(
+      "The 'output' column in sample_output must contain only numeric values."
+    )
+  }
+  
+  ## Validation for feature_exp
+  if (!is.null(feature_exp)) {
+    if (!is.data.frame(feature_exp)) {
+      stop("feature_exp must be a data frame if provided.")
+    }
+    if (
+      !(all(names(feature_exp) %in% names(sample_features))
+        & all(names(sample_features) %in% names(feature_exp))
+      )
+    ) {
+      stop(
+        paste0(
+          "feature_exp must have the same column names and order as "
+          , "sample_features."
+        )
+      )
+    }
+    if (any(!sapply(feature_exp, is.numeric))) {
+      stop("All columns in feature_exp must contain numeric values.")
+    }
+  }
+  
+  ## Additional checks for 'output' column avoidance in feature data frames
+  if (
+    "output" %in% names(sample_features) 
+    || (!is.null(feature_exp) && "output" %in% names(feature_exp))
+  ) {
+    stop(
+      paste0(
+        "Neither sample_features nor feature_exp should contain a column "
+        , "named 'output'."
+      )
+    )
+  }
+  
+  ## Threshold validation
+  if (
+    !is.numeric(threshold) 
+    || length(threshold) != 1 
+    || threshold < 0 
+    || threshold > 1
+  ) {
+    stop("threshold must be a numeric value between 0 and 1.")
+  }
+  
+  ## Logical parameters validation
+  if (!is.logical(prob) || length(prob) != 1) {
+    stop("prob must be a single logical value.")
+  }
+  if (!is.logical(est) || length(est) != 1) {
+    stop("est must be a single logical value.")
+  }
+  if (!is.logical(verbose) || length(verbose) != 1) {
+    stop("verbose must be a single logical value.")
+  }
+  
+  # Function implementation
+  ## Change feature categories features to binaries
   sample_features0 <- sample_features
   sample_features <-
     mutate_if(sample_features, is.factor, \(x) as.numeric(x) - 1)
   
-  # Combine feature values with outputs
+  ## Combine feature values with outputs
   sample_data <- cbind(sample_output, sample_features)
   
   if(is.null(feature_exp)){
@@ -108,7 +248,10 @@ create_nomogram <- function(sample_features, sample_output, feature_exp = NULL, 
     
     feature_exp <-
       `names<-`(feature_exp, feature_exp) |>
-      imap(~ tidy(lm(as.formula(paste0("output~", .x)), data = sample_data))) |>
+      imap(
+        ~ lm(as.formula(paste0("output~", .x)), data = sample_data) |>
+          tidy()
+      ) |>
       imap(~ mutate(.x, feature = .y, exp = exp(estimate + std.error))) |>
       reduce(rbind) |>
       filter(term != "(Intercept)") |>
@@ -124,7 +267,7 @@ create_nomogram <- function(sample_features, sample_output, feature_exp = NULL, 
     feature_exp_input_null <- FALSE
   }
   
-  # Combine data and sort feature values sorted by exp normalized magnitudes
+  ## Combine data and sort feature values sorted by exp normalized magnitudes
   nomogram_data <-
     sample_data |>
     mutate(i = seq(nrow(sample_data))) |>
@@ -162,6 +305,7 @@ create_nomogram <- function(sample_features, sample_output, feature_exp = NULL, 
       mutate(i2 = seq(n()))
     
     num_predictor <- sum(sapply(sample_features0, is.numeric))
+    cat_predictor <- sum(sapply(sample_features0, is.factor))
     
     if(num_predictor == 1){
       nomogram_data_factor_group <-
@@ -389,11 +533,11 @@ create_nomogram <- function(sample_features, sample_output, feature_exp = NULL, 
       )
     }
   }else{
-    # Sort feature columns by exp normalized magnitudes
+    ## Sort feature columns by exp normalized magnitudes
     sample_column_names <- c("output", levels(nomogram_data$feature))
     sorted_sample_data <- select(sample_data, all_of(sample_column_names))
     
-    # Obtain feature combinations being predicted positive
+    ## Obtain feature combinations being predicted positive
     pos_pred_features <- list()
     
     if(verbose){
@@ -437,7 +581,7 @@ create_nomogram <- function(sample_features, sample_output, feature_exp = NULL, 
           , med = suppressWarnings(median(output))
           , max = suppressWarnings(max(output))
           , .groups = "drop"
-        ) %>%
+        ) |>
         filter(min >= threshold)
       
       if(verbose){
@@ -497,7 +641,7 @@ create_nomogram <- function(sample_features, sample_output, feature_exp = NULL, 
           , med = suppressWarnings(median(output))
           , max = suppressWarnings(max(output))
           , .groups = "drop"
-        ) %>%
+        ) |>
         filter(max < threshold)
       
       if(verbose){
@@ -510,7 +654,7 @@ create_nomogram <- function(sample_features, sample_output, feature_exp = NULL, 
     
     neg_pred_features <- reduce(neg_pred_features, rbind)
     
-    # Create nomogram plot data
+    ## Create nomogram plot data
     nomogram_plot_data <-
       rbind(
         mutate(pos_pred_features, pred = 1)
