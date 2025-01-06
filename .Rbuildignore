@@ -1,0 +1,11 @@
+^\.git$
+^\.Rproj.user$
+^.*\.Rproj$
+^vignettes/.*\.html$
+^extras$
+^doc$
+^Meta$
+^archive$
+^.github$
+^\.Rproj\.user$
+^Dockerfile$
