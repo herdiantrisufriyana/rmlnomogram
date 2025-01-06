@@ -27,10 +27,9 @@ vignette: >
 
 ```{r Load necessary packages}
 library(tidyverse)
-library(ggpubr)
-library(broom)
 library(caret)
 library(iml)
+library(rmlnomogram)
 ```
 
 # Binary outcome (or class-wise multinomial outcome)
@@ -133,22 +132,13 @@ nomogram_shaps <- reduce(imap(nomogram_shaps, ~ mutate(.x, i = .y)), rbind) |>
 head(nomogram_shaps)
 ```
 
-```{r Example 1 - Create nomogram with shap}
-nomogram_with_shap <-
-  create_nomogram(nomogram_features, nomogram_outputs, nomogram_shaps)
-```
-
-```{r figure-2, echo=FALSE, fig.height=3, fig.width=12}
-nomogram_with_shap
-```
-
 ## 2 - Categorical predictors and binary outcome with probability
 
 ```{r Example 2 - Create nomogram}
 nomogram2 <- create_nomogram(nomogram_features, nomogram_outputs, prob = TRUE)
 ```
 
-```{r figure-3, echo=FALSE, fig.height=4.5, fig.width=10}
+```{r figure-2, echo=FALSE, fig.height=4.5, fig.width=10}
 nomogram2
 ```
 
@@ -160,11 +150,11 @@ nomogram2_with_shap <-
   )
 ```
 
-```{r figure-4, echo=FALSE, fig.height=6, fig.width=12}
+```{r figure-3, echo=FALSE, fig.height=6, fig.width=12}
 nomogram2_with_shap
 ```
 
-## 3 - Categorical and 1 numerical predictors and binary outcome with probability
+## 3 - Categorical with single numerical predictors and binary outcome with probability
 
 ```{r Example 3 - Train a prediction model}
 # Reload original dataset
@@ -173,7 +163,7 @@ data("mtcars")
 # Round to 0 decimal to reduce possible combinations later
 mtcars <- mutate(mtcars, qsec = round(qsec, 0))
 
-# Add 1 numerical predictor to binarized predictors with the target variable
+# Add single numerical predictor to binarized predictors with the target variable
 mtcars_mixed <- cbind(mtcars["qsec"], select(mtcars_binarized, -qsec.1))
 
 # Train a random forest model using the full dataset
@@ -214,7 +204,7 @@ nomogram_outputs2 <- predict(model2, nomogram_features2, type = "prob") |>
 nomogram3 <- create_nomogram(nomogram_features2, nomogram_outputs2, prob = TRUE)
 ```
 
-```{r figure-5, echo=FALSE, fig.height=7.5, fig.width=12}
+```{r figure-4, echo=FALSE, fig.height=7.5, fig.width=12}
 nomogram3
 ```
 
@@ -251,13 +241,13 @@ nomogram3_with_shap <-
   )
 ```
 
-```{r figure-6, echo=FALSE, fig.height=7.5, fig.width=12}
+```{r figure-5, echo=FALSE, fig.height=7.5, fig.width=12}
 nomogram3_with_shap
 ```
 
-# Numerical outcome
+# Continuous outcome
 
-## 4 - Categorical predictors and numerical outcome
+## 4 - Categorical predictors and continuous outcome
 
 ```{r Example 4 - Train a prediction model}
 # Load dataset
@@ -317,7 +307,7 @@ head(nomogram_outputs3)
 nomogram4 <- create_nomogram(nomogram_features3, nomogram_outputs3, est = TRUE)
 ```
 
-```{r figure-7, echo=FALSE, fig.height=4.5, fig.width=10}
+```{r figure-6, echo=FALSE, fig.height=4.5, fig.width=10}
 nomogram4
 ```
 
@@ -353,11 +343,11 @@ nomogram4_with_shap <-
   )
 ```
 
-```{r figure-8, echo=FALSE, fig.height=7.5, fig.width=12}
+```{r figure-7, echo=FALSE, fig.height=7.5, fig.width=12}
 nomogram4_with_shap
 ```
 
-## 5 - Categorical and 1 numerical predictors and numerical outcome
+## 5 - Categorical with single numerical predictors and continuous outcome
 
 ```{r Example 5 - Train a prediction model}
 # Reload original dataset
@@ -366,7 +356,7 @@ data("mtcars")
 # Round to 0 decimal to reduce possible combinations later
 mtcars <- mutate(mtcars, qsec = round(qsec, 0))
 
-# Add 1 numerical predictor to binarized predictors with the target variable
+# Add single numerical predictor to binarized predictors with the target variable
 mtcars_mixed2 <- cbind(mtcars["qsec"], select(mtcars_binarized2, -qsec.1))
 
 # Train a random forest model using the full dataset
@@ -402,7 +392,7 @@ nomogram_outputs4 <- data.frame(output = predict(model4, nomogram_features4))
 nomogram5 <- create_nomogram(nomogram_features4, nomogram_outputs4, est = TRUE)
 ```
 
-```{r figure-9, echo=FALSE, fig.height=7.5, fig.width=12}
+```{r figure-8, echo=FALSE, fig.height=7.5, fig.width=12}
 nomogram5
 ```
 
@@ -438,8 +428,10 @@ nomogram4_with_shap <-
   )
 ```
 
-```{r figure-10, echo=FALSE, fig.height=7.5, fig.width=12}
+```{r figure-9, echo=FALSE, fig.height=7.5, fig.width=12}
 nomogram4_with_shap
 ```
 
-
+```{r session-info, echo=TRUE}
+sessionInfo()
+```
