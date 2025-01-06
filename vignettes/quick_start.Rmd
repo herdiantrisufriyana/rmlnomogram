@@ -1,0 +1,108 @@
+---
+title: "Quick Start"
+author:
+  - name: Herdiantri Sufriyana
+    affiliation:
+    - &ibi Institute of Biomedical Informatics, College of Medicine, National 
+      Yang Ming Chiao Tung University, Taipei, Taiwan. 
+    email: herdi@nycu.edu.tw
+  - name: Emily Chia-Yu Su
+    affiliation:
+    - *ibi
+date: "2024-12-24"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+vignette: >
+  %\VignetteIndexEntry{Machine Learning Nomogram Exemplar}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+# Programming environment
+
+```{r Load necessary packages}
+library(rmlnomogram)
+```
+
+# Binary outcome (or class-wise multinomial outcome)
+
+## 1 - Categorical predictors and binary outcome without probability
+
+```{r Example 1 - Without explainability, fig.height=3, fig.width=12}
+data(nomogram_features)
+data(nomogram_outputs)
+create_nomogram(nomogram_features, nomogram_outputs)
+```
+
+## 2 - Categorical predictors and binary outcome with probability
+
+```{r Example 2 - Without explainability, fig.height=4.5, fig.width=10}
+create_nomogram(nomogram_features, nomogram_outputs, prob = TRUE)
+```
+
+```{r Example 2 - With explainability, fig.height=6, fig.width=12}
+data(nomogram_shaps)
+create_nomogram(
+  nomogram_features, nomogram_outputs, nomogram_shaps
+  , prob = TRUE
+)
+```
+
+## 3 - Categorical and 1 numerical predictors and binary outcome with probability
+
+```{r Example 3 - Without explainability, fig.height=7.5, fig.width=12}
+data(nomogram_features2)
+data(nomogram_outputs2)
+create_nomogram(nomogram_features2, nomogram_outputs2, prob = TRUE)
+```
+
+```{r Example 3 - With explainability, fig.height=7.5, fig.width=12}
+data(nomogram_shaps2)
+create_nomogram(
+  nomogram_features2, nomogram_outputs2, nomogram_shaps2
+  , prob = TRUE
+)
+```
+
+# Continuous outcome
+
+## 4 - Categorical predictors and continuous outcome
+
+```{r Example 4 - Without explainability, fig.height=4.5, fig.width=10}
+data(nomogram_features3)
+data(nomogram_outputs3)
+create_nomogram(nomogram_features3, nomogram_outputs3, est = TRUE)
+```
+
+```{r Example 4 - With explainability, fig.height=4.5, fig.width=10}
+data(nomogram_shaps3)
+create_nomogram(
+  nomogram_features3, nomogram_outputs3, nomogram_shaps3
+  , est = TRUE
+)
+```
+
+## 5 - Categorical and 1 numerical predictors and continuous outcome
+
+```{r Example 5 - Without explainability, fig.height=7.5, fig.width=12}
+data(nomogram_features4)
+data(nomogram_outputs4)
+create_nomogram(nomogram_features4, nomogram_outputs4, est = TRUE)
+```
+
+```{r Example 5 - With explainability, fig.height=7.5, fig.width=12}
+data(nomogram_shaps4)
+create_nomogram(
+  nomogram_features4, nomogram_outputs4, nomogram_shaps4
+  , est = TRUE
+)
+```
+
+```{r session-info, echo=TRUE}
+sessionInfo()
+```
