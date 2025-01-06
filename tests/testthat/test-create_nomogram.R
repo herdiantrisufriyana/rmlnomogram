@@ -65,7 +65,7 @@ test_that("create_nomogram validates data types and structures", {
       sample_features, sample_output
       , feature_exp = data.frame(wrong = c(1, 2, 3))
     ),
-    "feature_exp must have the same column names as sample_features."
+    "feature_exp must have the same column names and order as sample_features."
   )
 })
 
