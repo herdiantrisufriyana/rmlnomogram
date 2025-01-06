@@ -12,7 +12,7 @@
 
 ## Installation
 
-You can install t`rmlnomogram` from CRANs with:
+You can install `rmlnomogram` from CRAN with:
 
 ```r
 install.packages("rmlnomogram")
