@@ -71,6 +71,7 @@ RUN R -e "BiocManager::install('randomForest', ask=FALSE, update=FALSE, force=TR
 RUN R -e "BiocManager::install('iml', ask=FALSE, update=FALSE, force=TRUE)"
 RUN R -e "BiocManager::install('devtools', ask=FALSE, update=FALSE, force=TRUE)"
 RUN R -e "BiocManager::install('roxygen2', ask=FALSE, update=FALSE, force=TRUE)"
+RUN R -e "BiocManager::install('rhub', ask=FALSE, update=FALSE, force=TRUE)"
 
 # Set the working directory to ~/project on R session start
 RUN echo 'setwd("~/project")' >> /home/rstudio/.Rprofile
