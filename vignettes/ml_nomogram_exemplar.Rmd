@@ -36,7 +36,7 @@ library(rmlnomogram)
 
 ## 1 - Categorical predictors and binary outcome without probability
 
-```{r Example 1 - Train a prediction model}
+```{r Example 1 - Train a prediction model, eval=FALSE}
 # Load dataset
 data("mtcars")
 
@@ -71,7 +71,7 @@ model <- train(
 )
 ```
 
-```{r Example 1 - Entire dataset of combinations of the selected features}
+```{r Example 1 - Entire dataset of combinations of the selected features, eval=FALSE}
 # Extract feature names used in the trained model from caret model object
 caret_features <- str_remove_all(model$finalModel$xNames, "1$")
 
@@ -82,13 +82,21 @@ mtcars_selected <- mtcars_binarized[, caret_features]
 nomogram_features <- expand.grid(lapply(mtcars_selected, unique))
 ```
 
+```{r Example 1 - Load subs 1 to avoid multi-threading, include=FALSE}
+data(nomogram_features)
+```
+
 ```{r table-1, echo=FALSE}
 head(nomogram_features)
 ```
 
-```{r Example 1 - Prediction outputs for the entire dataset}
+```{r Example 1 - Prediction outputs for the entire dataset, eval=FALSE}
 nomogram_outputs <- predict(model, nomogram_features, type = "prob") |>
   select(output = levels(mtcars_binarized$am)[2])
+```
+
+```{r Example 1 - Load subs 2 to avoid multi-threading, include=FALSE}
+data(nomogram_outputs)
 ```
 
 ```{r table-2, echo=FALSE}
@@ -103,7 +111,7 @@ nomogram <- create_nomogram(nomogram_features, nomogram_outputs)
 nomogram
 ```
 
-```{r Example 1 - Compute SHAP values for the entire dataset}
+```{r Example 1 - Compute SHAP values for the entire dataset, eval=FALSE}
 # Prepare data and model for SHAP value calculation using iml
 X <- mtcars_binarized[, -which(names(mtcars_binarized) == "am")]
 
@@ -126,6 +134,10 @@ nomogram_shaps <- reduce(imap(nomogram_shaps, ~ mutate(.x, i = .y)), rbind) |>
   spread(feature, phi) |>
   arrange(as.numeric(i)) |>
   column_to_rownames(var = "i")
+```
+
+```{r Example 1 - Load subs 3 to avoid multi-threading, include=FALSE}
+data(nomogram_shaps)
 ```
 
 ```{r table-3, echo=FALSE}
@@ -156,7 +168,7 @@ nomogram2_with_shap
 
 ## 3 - Categorical with single numerical predictors and binary outcome with probability
 
-```{r Example 3 - Train a prediction model}
+```{r Example 3 - Train a prediction model, eval=FALSE}
 # Reload original dataset
 data("mtcars")
 
@@ -176,7 +188,7 @@ model2 <- train(
 )
 ```
 
-```{r Example 3 - Entire dataset of combinations of the selected features}
+```{r Example 3 - Entire dataset of combinations of the selected features, eval=FALSE}
 # Extract feature names used in the trained model from caret model object
 caret_features2 <- str_remove_all(model2$finalModel$xNames, "1$")
 
@@ -191,13 +203,21 @@ nomogram_features2 <-
   expand.grid()
 ```
 
+```{r Example 3 - Load subs 1 to avoid multi-threading, include=FALSE}
+data(nomogram_features2)
+```
+
 ```{r table-4, echo=FALSE}
 head(nomogram_features2)
 ```
 
-```{r Example 3 - Prediction outputs for the entire dataset}
+```{r Example 3 - Prediction outputs for the entire dataset, eval=FALSE}
 nomogram_outputs2 <- predict(model2, nomogram_features2, type = "prob") |>
   select(output = levels(mtcars_mixed$am)[2])
+```
+
+```{r Example 3 - Load subs 2 to avoid multi-threading, include=FALSE}
+data(nomogram_outputs2)
 ```
 
 ```{r Example 3 - Create nomogram}
@@ -208,7 +228,7 @@ nomogram3 <- create_nomogram(nomogram_features2, nomogram_outputs2, prob = TRUE)
 nomogram3
 ```
 
-```{r Example 3 - Compute SHAP values for the entire dataset}
+```{r Example 3 - Compute SHAP values for the entire dataset, eval=FALSE}
 # Prepare data and model for SHAP value calculation using iml
 X2 <- mtcars_mixed[, -which(names(mtcars_mixed) == "am")]
 
@@ -233,6 +253,10 @@ nomogram_shaps2 <- reduce(imap(nomogram_shaps2, ~ mutate(.x, i = .y)), rbind) |>
   column_to_rownames(var = "i")
 ```
 
+```{r Example 3 - Load subs 3 to avoid multi-threading, include=FALSE}
+data(nomogram_shaps2)
+```
+
 ```{r Example 3 - Create nomogram with SHAP}
 nomogram3_with_shap <-
   create_nomogram(
@@ -249,7 +273,7 @@ nomogram3_with_shap
 
 ## 4 - Categorical predictors and continuous outcome
 
-```{r Example 4 - Train a prediction model}
+```{r Example 4 - Train a prediction model, eval=FALSE}
 # Load dataset
 data("mtcars")
 
@@ -284,7 +308,7 @@ model3 <- train(
 )
 ```
 
-```{r Example 4 - Entire dataset of combinations of the selected features}
+```{r Example 4 - Entire dataset of combinations of the selected features, eval=FALSE}
 # Extract feature names used in the trained model from caret model object
 caret_features3 <- str_remove_all(model3$finalModel$xNames, "1$")
 
@@ -295,8 +319,16 @@ mtcars_selected3 <- mtcars_binarized2[, caret_features3]
 nomogram_features3 <- expand.grid(lapply(mtcars_selected3, unique))
 ```
 
-```{r Example 4 - Prediction outputs for the entire dataset}
+```{r Example 4 - Load subs 1 to avoid multi-threading, include=FALSE}
+data(nomogram_features3)
+```
+
+```{r Example 4 - Prediction outputs for the entire dataset, eval=FALSE}
 nomogram_outputs3 <- data.frame(output = predict(model3, nomogram_features3))
+```
+
+```{r Example 4 - Load subs 2 to avoid multi-threading, include=FALSE}
+data(nomogram_outputs3)
 ```
 
 ```{r table-5, echo=FALSE}
@@ -311,7 +343,7 @@ nomogram4 <- create_nomogram(nomogram_features3, nomogram_outputs3, est = TRUE)
 nomogram4
 ```
 
-```{r Example 4 - Compute SHAP values for the entire dataset}
+```{r Example 4 - Compute SHAP values for the entire dataset, eval=FALSE}
 # Prepare data and model for SHAP value calculation using iml
 X3 <- mtcars_binarized2[, -which(names(mtcars_binarized2) == "wt")]
 
@@ -335,6 +367,10 @@ nomogram_shaps3 <- reduce(imap(nomogram_shaps3, ~ mutate(.x, i = .y)), rbind) |>
   column_to_rownames(var = "i")
 ```
 
+```{r Example 4 - Load subs 3 to avoid multi-threading, include=FALSE}
+data(nomogram_shaps3)
+```
+
 ```{r Example 4 - Create nomogram with SHAP}
 nomogram4_with_shap <-
   create_nomogram(
@@ -349,7 +385,7 @@ nomogram4_with_shap
 
 ## 5 - Categorical with single numerical predictors and continuous outcome
 
-```{r Example 5 - Train a prediction model}
+```{r Example 5 - Train a prediction model, eval=FALSE}
 # Reload original dataset
 data("mtcars")
 
@@ -369,7 +405,7 @@ model4 <- train(
 )
 ```
 
-```{r Example 5 - Entire dataset of combinations of the selected features}
+```{r Example 5 - Entire dataset of combinations of the selected features, eval=FALSE}
 # Extract feature names used in the trained model from caret model object
 caret_features4 <- str_remove_all(model4$finalModel$xNames, "1$")
 
@@ -384,8 +420,16 @@ nomogram_features4 <-
   expand.grid()
 ```
 
-```{r Example 5 - Prediction outputs for the entire dataset}
+```{r Example 5 - Load subs 1 to avoid multi-threading, include=FALSE}
+data(nomogram_features4)
+```
+
+```{r Example 5 - Prediction outputs for the entire dataset, eval=FALSE}
 nomogram_outputs4 <- data.frame(output = predict(model4, nomogram_features4))
+```
+
+```{r Example 5 - Load subs 2 to avoid multi-threading, include=FALSE}
+data(nomogram_outputs4)
 ```
 
 ```{r Example 5 - Create nomogram}
@@ -396,7 +440,7 @@ nomogram5 <- create_nomogram(nomogram_features4, nomogram_outputs4, est = TRUE)
 nomogram5
 ```
 
-```{r Example 5 - Compute SHAP values for the entire dataset}
+```{r Example 5 - Compute SHAP values for the entire dataset, eval=FALSE}
 # Prepare data and model for SHAP value calculation using iml
 X4 <- mtcars_mixed2[, -which(names(mtcars_mixed2) == "wt")]
 
@@ -418,6 +462,10 @@ nomogram_shaps4 <- reduce(imap(nomogram_shaps4, ~ mutate(.x, i = .y)), rbind) |>
   spread(feature, phi) |>
   arrange(as.numeric(i)) |>
   column_to_rownames(var = "i")
+```
+
+```{r Example 5 - Load subs 3 to avoid multi-threading, include=FALSE}
+data(nomogram_shaps4)
 ```
 
 ```{r Example 5 - Create nomogram with SHAP}
