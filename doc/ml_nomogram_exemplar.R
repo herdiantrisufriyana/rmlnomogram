@@ -1,0 +1,392 @@
+## ----Load necessary packages--------------------------------------------------
+library(tidyverse)
+library(caret)
+library(iml)
+library(rmlnomogram)
+
+## ----Example 1 - Train a prediction model, eval=FALSE-------------------------
+#  # Load dataset
+#  data("mtcars")
+#  
+#  # Preprocess for training a classifier
+#  mtcars$am <- factor(mtcars$am, levels = c(0, 1), labels = c("Auto", "Manual"))
+#  
+#  # Convert some numerical features to categorical for demonstration
+#  mtcars$cyl <- factor(mtcars$cyl)
+#  mtcars$vs <- factor(mtcars$vs)
+#  mtcars$qsec <- factor(as.integer(mtcars$qsec >= 18))
+#  
+#  # Using tidyverse to filter only factor columns
+#  mtcars <- select(mtcars, where(is.factor))
+#  
+#  # Create dummy variables for all factor variables, excluding the target variable
+#  dummy_vars <- dummyVars(am ~ ., data = mtcars) |>
+#    predict(newdata = mtcars)
+#  
+#  # Combine binarized predictors with the target variable
+#  mtcars_binarized <- as.data.frame(dummy_vars) |>
+#    mutate_all(as.factor) |>
+#    mutate(am = mtcars$am) |>
+#    select(-vs.0, -cyl.4, -qsec.0)
+#  
+#  # Train a random forest model using the full dataset
+#  set.seed(1)
+#  model <- train(
+#    am ~ .,
+#    data = mtcars_binarized,
+#    method = "rf",
+#    trControl = trainControl(method = "none", classProbs = TRUE)
+#  )
+
+## ----Example 1 - Entire dataset of combinations of the selected features, eval=FALSE----
+#  # Extract feature names used in the trained model from caret model object
+#  caret_features <- str_remove_all(model$finalModel$xNames, "1$")
+#  
+#  # Modify the training dataset to include only the model features
+#  mtcars_selected <- mtcars_binarized[, caret_features]
+#  
+#  # Generate all possible feature combinations for nomogram
+#  nomogram_features <- expand.grid(lapply(mtcars_selected, unique))
+
+## ----Example 1 - Load subs 1 to avoid multi-threading, include=FALSE----------
+data(nomogram_features)
+
+## ----table-1, echo=FALSE------------------------------------------------------
+head(nomogram_features)
+
+## ----Example 1 - Prediction outputs for the entire dataset, eval=FALSE--------
+#  nomogram_outputs <- predict(model, nomogram_features, type = "prob") |>
+#    select(output = levels(mtcars_binarized$am)[2])
+
+## ----Example 1 - Load subs 2 to avoid multi-threading, include=FALSE----------
+data(nomogram_outputs)
+
+## ----table-2, echo=FALSE------------------------------------------------------
+head(nomogram_outputs)
+
+## ----Example 1 - Create nomogram----------------------------------------------
+nomogram <- create_nomogram(nomogram_features, nomogram_outputs)
+
+## ----figure-1, echo=FALSE, fig.height=3, fig.width=12-------------------------
+nomogram
+
+## ----Example 1 - Compute SHAP values for the entire dataset, eval=FALSE-------
+#  # Prepare data and model for SHAP value calculation using iml
+#  X <- mtcars_binarized[, -which(names(mtcars_binarized) == "am")]
+#  
+#  # Create a predictor object
+#  predictor <- Predictor$new(model = model, data = X)
+#  
+#  # Calculate SHAP values
+#  nomogram_shaps <- list()
+#  
+#  for(i in seq(nrow(nomogram_features))){
+#    shapley <-  Shapley$new(predictor, x.interest = nomogram_features[i, ])
+#    nomogram_shaps[[i]] <- shapley$results
+#  }
+#  
+#  names(nomogram_shaps) <- seq(nrow(nomogram_features))
+#  
+#  nomogram_shaps <- reduce(imap(nomogram_shaps, ~ mutate(.x, i = .y)), rbind) |>
+#    filter(class == levels(mtcars_binarized$am)[2]) |>
+#    select(i, feature, phi) |>
+#    spread(feature, phi) |>
+#    arrange(as.numeric(i)) |>
+#    column_to_rownames(var = "i")
+
+## ----Example 1 - Load subs 3 to avoid multi-threading, include=FALSE----------
+data(nomogram_shaps)
+
+## ----table-3, echo=FALSE------------------------------------------------------
+head(nomogram_shaps)
+
+## ----Example 2 - Create nomogram----------------------------------------------
+nomogram2 <- create_nomogram(nomogram_features, nomogram_outputs, prob = TRUE)
+
+## ----figure-2, echo=FALSE, fig.height=4.5, fig.width=10-----------------------
+nomogram2
+
+## ----Example 2 - Create nomogram with SHAP------------------------------------
+nomogram2_with_shap <-
+  create_nomogram(
+    nomogram_features, nomogram_outputs, nomogram_shaps
+    , prob = TRUE
+  )
+
+## ----figure-3, echo=FALSE, fig.height=6, fig.width=12-------------------------
+nomogram2_with_shap
+
+## ----Example 3 - Train a prediction model, eval=FALSE-------------------------
+#  # Reload original dataset
+#  data("mtcars")
+#  
+#  # Round to 0 decimal to reduce possible combinations later
+#  mtcars <- mutate(mtcars, qsec = round(qsec, 0))
+#  
+#  # Add single numerical predictor to binarized predictors with the target variable
+#  mtcars_mixed <- cbind(mtcars["qsec"], select(mtcars_binarized, -qsec.1))
+#  
+#  # Train a random forest model using the full dataset
+#  set.seed(1)
+#  model2 <- train(
+#    am ~ .,
+#    data = mtcars_mixed,
+#    method = "rf",
+#    trControl = trainControl(method = "none", classProbs = TRUE)
+#  )
+
+## ----Example 3 - Entire dataset of combinations of the selected features, eval=FALSE----
+#  # Extract feature names used in the trained model from caret model object
+#  caret_features2 <- str_remove_all(model2$finalModel$xNames, "1$")
+#  
+#  # Modify the training dataset to include only the model features
+#  mtcars_selected2 <- mtcars_mixed[, caret_features2]
+#  
+#  # Generate all possible feature combinations for nomogram
+#  nomogram_features2 <-
+#    select_if(mtcars_selected2, is.numeric) |>
+#    lapply(\(x) seq(min(x), max(x))) |>
+#    c(lapply(select_if(mtcars_selected2, is.factor), unique)) |>
+#    expand.grid()
+
+## ----Example 3 - Load subs 1 to avoid multi-threading, include=FALSE----------
+data(nomogram_features2)
+
+## ----table-4, echo=FALSE------------------------------------------------------
+head(nomogram_features2)
+
+## ----Example 3 - Prediction outputs for the entire dataset, eval=FALSE--------
+#  nomogram_outputs2 <- predict(model2, nomogram_features2, type = "prob") |>
+#    select(output = levels(mtcars_mixed$am)[2])
+
+## ----Example 3 - Load subs 2 to avoid multi-threading, include=FALSE----------
+data(nomogram_outputs2)
+
+## ----Example 3 - Create nomogram----------------------------------------------
+nomogram3 <- create_nomogram(nomogram_features2, nomogram_outputs2, prob = TRUE)
+
+## ----figure-4, echo=FALSE, fig.height=7.5, fig.width=12-----------------------
+nomogram3
+
+## ----Example 3 - Compute SHAP values for the entire dataset, eval=FALSE-------
+#  # Prepare data and model for SHAP value calculation using iml
+#  X2 <- mtcars_mixed[, -which(names(mtcars_mixed) == "am")]
+#  
+#  # Create a predictor object
+#  predictor2 <- Predictor$new(model = model2, data = X2)
+#  
+#  # Calculate SHAP values
+#  nomogram_shaps2 <- list()
+#  
+#  for(i in seq(nrow(nomogram_features2))){
+#    shapley2 <-  Shapley$new(predictor2, x.interest = nomogram_features2[i, ])
+#    nomogram_shaps2[[i]] <- shapley2$results
+#  }
+#  
+#  names(nomogram_shaps2) <- seq(nrow(nomogram_features2))
+#  
+#  nomogram_shaps2 <- reduce(imap(nomogram_shaps2, ~ mutate(.x, i = .y)), rbind) |>
+#    filter(class == levels(mtcars_mixed$am)[2]) |>
+#    select(i, feature, phi) |>
+#    spread(feature, phi) |>
+#    arrange(as.numeric(i)) |>
+#    column_to_rownames(var = "i")
+
+## ----Example 3 - Load subs 3 to avoid multi-threading, include=FALSE----------
+data(nomogram_shaps2)
+
+## ----Example 3 - Create nomogram with SHAP------------------------------------
+nomogram3_with_shap <-
+  create_nomogram(
+    nomogram_features2, nomogram_outputs2, nomogram_shaps2
+    , prob = TRUE
+  )
+
+## ----figure-5, echo=FALSE, fig.height=7.5, fig.width=12-----------------------
+nomogram3_with_shap
+
+## ----Example 4 - Train a prediction model, eval=FALSE-------------------------
+#  # Load dataset
+#  data("mtcars")
+#  
+#  # Preprocess for training a regressor
+#  outcome <- mtcars$wt
+#  
+#  # Convert some numerical features to categorical for demonstration
+#  mtcars$cyl <- factor(mtcars$cyl)
+#  mtcars$vs <- factor(mtcars$vs)
+#  mtcars$qsec <- factor(as.integer(mtcars$qsec >= 18))
+#  
+#  # Using tidyverse to filter only factor columns
+#  mtcars <- cbind(select(mtcars, where(is.factor)), select(mtcars, wt))
+#  
+#  # Create dummy variables for all factor variables, excluding the target variable
+#  dummy_vars2 <- dummyVars(wt ~ ., data = mtcars) |>
+#    predict(newdata = mtcars)
+#  
+#  # Combine binarized predictors with the target variable
+#  mtcars_binarized2 <- as.data.frame(dummy_vars2) |>
+#    mutate_all(as.factor) |>
+#    mutate(wt = outcome) |>
+#    select(-vs.0, -cyl.4, -qsec.0)
+#  
+#  # Train a random forest model using the full dataset
+#  set.seed(1)
+#  model3 <- train(
+#    wt ~ .,
+#    data = mtcars_binarized2,
+#    method = "rf",
+#    trControl = trainControl(method = "none")
+#  )
+
+## ----Example 4 - Entire dataset of combinations of the selected features, eval=FALSE----
+#  # Extract feature names used in the trained model from caret model object
+#  caret_features3 <- str_remove_all(model3$finalModel$xNames, "1$")
+#  
+#  # Modify the training dataset to include only the model features
+#  mtcars_selected3 <- mtcars_binarized2[, caret_features3]
+#  
+#  # Generate all possible feature combinations for nomogram
+#  nomogram_features3 <- expand.grid(lapply(mtcars_selected3, unique))
+
+## ----Example 4 - Load subs 1 to avoid multi-threading, include=FALSE----------
+data(nomogram_features3)
+
+## ----Example 4 - Prediction outputs for the entire dataset, eval=FALSE--------
+#  nomogram_outputs3 <- data.frame(output = predict(model3, nomogram_features3))
+
+## ----Example 4 - Load subs 2 to avoid multi-threading, include=FALSE----------
+data(nomogram_outputs3)
+
+## ----table-5, echo=FALSE------------------------------------------------------
+head(nomogram_outputs3)
+
+## ----Example 4 - Create nomogram----------------------------------------------
+nomogram4 <- create_nomogram(nomogram_features3, nomogram_outputs3, est = TRUE)
+
+## ----figure-6, echo=FALSE, fig.height=4.5, fig.width=10-----------------------
+nomogram4
+
+## ----Example 4 - Compute SHAP values for the entire dataset, eval=FALSE-------
+#  # Prepare data and model for SHAP value calculation using iml
+#  X3 <- mtcars_binarized2[, -which(names(mtcars_binarized2) == "wt")]
+#  
+#  # Create a predictor object
+#  predictor3 <- Predictor$new(model = model3, data = X3)
+#  
+#  # Calculate SHAP values
+#  nomogram_shaps3 <- list()
+#  
+#  for(i in seq(nrow(nomogram_features3))){
+#    shapley3 <-  Shapley$new(predictor3, x.interest = nomogram_features3[i, ])
+#    nomogram_shaps3[[i]] <- shapley3$results
+#  }
+#  
+#  names(nomogram_shaps3) <- seq(nrow(nomogram_features3))
+#  
+#  nomogram_shaps3 <- reduce(imap(nomogram_shaps3, ~ mutate(.x, i = .y)), rbind) |>
+#    select(i, feature, phi) |>
+#    spread(feature, phi) |>
+#    arrange(as.numeric(i)) |>
+#    column_to_rownames(var = "i")
+
+## ----Example 4 - Load subs 3 to avoid multi-threading, include=FALSE----------
+data(nomogram_shaps3)
+
+## ----Example 4 - Create nomogram with SHAP------------------------------------
+nomogram4_with_shap <-
+  create_nomogram(
+    nomogram_features3, nomogram_outputs3, nomogram_shaps3
+    , est = TRUE
+  )
+
+## ----figure-7, echo=FALSE, fig.height=7.5, fig.width=12-----------------------
+nomogram4_with_shap
+
+## ----Example 5 - Train a prediction model, eval=FALSE-------------------------
+#  # Reload original dataset
+#  data("mtcars")
+#  
+#  # Round to 0 decimal to reduce possible combinations later
+#  mtcars <- mutate(mtcars, qsec = round(qsec, 0))
+#  
+#  # Add single numerical predictor to binarized predictors with the target variable
+#  mtcars_mixed2 <- cbind(mtcars["qsec"], select(mtcars_binarized2, -qsec.1))
+#  
+#  # Train a random forest model using the full dataset
+#  set.seed(1)
+#  model4 <- train(
+#    wt ~ .,
+#    data = mtcars_mixed2,
+#    method = "rf",
+#    trControl = trainControl(method = "none")
+#  )
+
+## ----Example 5 - Entire dataset of combinations of the selected features, eval=FALSE----
+#  # Extract feature names used in the trained model from caret model object
+#  caret_features4 <- str_remove_all(model4$finalModel$xNames, "1$")
+#  
+#  # Modify the training dataset to include only the model features
+#  mtcars_selected4 <- mtcars_mixed2[, caret_features4]
+#  
+#  # Generate all possible feature combinations for nomogram
+#  nomogram_features4 <-
+#    select_if(mtcars_selected4, is.numeric) |>
+#    lapply(\(x) seq(min(x), max(x))) |>
+#    c(lapply(select_if(mtcars_selected4, is.factor), unique)) |>
+#    expand.grid()
+
+## ----Example 5 - Load subs 1 to avoid multi-threading, include=FALSE----------
+data(nomogram_features4)
+
+## ----Example 5 - Prediction outputs for the entire dataset, eval=FALSE--------
+#  nomogram_outputs4 <- data.frame(output = predict(model4, nomogram_features4))
+
+## ----Example 5 - Load subs 2 to avoid multi-threading, include=FALSE----------
+data(nomogram_outputs4)
+
+## ----Example 5 - Create nomogram----------------------------------------------
+nomogram5 <- create_nomogram(nomogram_features4, nomogram_outputs4, est = TRUE)
+
+## ----figure-8, echo=FALSE, fig.height=7.5, fig.width=12-----------------------
+nomogram5
+
+## ----Example 5 - Compute SHAP values for the entire dataset, eval=FALSE-------
+#  # Prepare data and model for SHAP value calculation using iml
+#  X4 <- mtcars_mixed2[, -which(names(mtcars_mixed2) == "wt")]
+#  
+#  # Create a predictor object
+#  predictor4 <- Predictor$new(model = model4, data = X4)
+#  
+#  # Calculate SHAP values
+#  nomogram_shaps4 <- list()
+#  
+#  for(i in seq(nrow(nomogram_features4))){
+#    shapley4 <-  Shapley$new(predictor4, x.interest = nomogram_features4[i, ])
+#    nomogram_shaps4[[i]] <- shapley4$results
+#  }
+#  
+#  names(nomogram_shaps4) <- seq(nrow(nomogram_features4))
+#  
+#  nomogram_shaps4 <- reduce(imap(nomogram_shaps4, ~ mutate(.x, i = .y)), rbind) |>
+#    select(i, feature, phi) |>
+#    spread(feature, phi) |>
+#    arrange(as.numeric(i)) |>
+#    column_to_rownames(var = "i")
+
+## ----Example 5 - Load subs 3 to avoid multi-threading, include=FALSE----------
+data(nomogram_shaps4)
+
+## ----Example 5 - Create nomogram with SHAP------------------------------------
+nomogram4_with_shap <-
+  create_nomogram(
+    nomogram_features4, nomogram_outputs4, nomogram_shaps4
+    , est = TRUE
+  )
+
+## ----figure-9, echo=FALSE, fig.height=7.5, fig.width=12-----------------------
+nomogram4_with_shap
+
+## ----session-info, echo=TRUE--------------------------------------------------
+sessionInfo()
+

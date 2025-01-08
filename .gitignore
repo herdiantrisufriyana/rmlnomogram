@@ -53,7 +53,7 @@ rsconnect/
 
 # Ignore everything in archive
 archive/*
-/doc/
+doc/figure*
 /Meta/
 
 # Ignore local file/folders
