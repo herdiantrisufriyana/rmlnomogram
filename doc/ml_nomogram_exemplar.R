@@ -378,14 +378,14 @@ nomogram5
 data(nomogram_shaps4)
 
 ## ----Example 5 - Create nomogram with SHAP------------------------------------
-nomogram4_with_shap <-
+nomogram5_with_shap <-
   create_nomogram(
     nomogram_features4, nomogram_outputs4, nomogram_shaps4
     , est = TRUE
   )
 
 ## ----figure-9, echo=FALSE, fig.height=7.5, fig.width=12-----------------------
-nomogram4_with_shap
+nomogram5_with_shap
 
 ## ----session-info, echo=TRUE--------------------------------------------------
 sessionInfo()

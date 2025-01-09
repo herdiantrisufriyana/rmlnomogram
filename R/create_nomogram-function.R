@@ -496,7 +496,7 @@ create_nomogram <- function(sample_features, sample_output, feature_exp = NULL, 
         exp_plot <- exp_plot + facet_grid(factor_group ~ .)
       }
       
-      exp_plot <- exp_plot + scale_x_continuous("Impact on fatigue ->")
+      exp_plot <- exp_plot + scale_x_continuous("Impact on outcome ->")
       
       if(num_predictor != 1){
         exp_plot <-
