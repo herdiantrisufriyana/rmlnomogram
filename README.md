@@ -107,7 +107,7 @@ Explore detailed examples and methodologies in the following vignettes:
 
 - [**Machine Learning Nomogram Exemplar**](https://htmlpreview.github.io/?https://github.com/herdiantrisufriyana/rmlnomogram/blob/master/doc/ml_nomogram_exemplar.html): A guide through basic scenarios demonstrating how to use `rmlnomogram` to create a nomogram.
 
-- [**Reference Manual**](https://github.com/herdiantrisufriyana/rmlnomogram/blob/master/extras/rmlnomogram_0.1.2.pdf): Comprehensive documentation of all functions and features available in `rmlnomogram`. Ideal for detailed reference and advanced use cases.
+- [**Reference Manual**](https://github.com/herdiantrisufriyana/rmlnomogram/blob/master/extras/rmlnomogram_0.1.3.pdf): Comprehensive documentation of all functions and features available in `rmlnomogram`. Ideal for detailed reference and advanced use cases.
 
 
 ## License
