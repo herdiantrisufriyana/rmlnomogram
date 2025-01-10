@@ -133,7 +133,7 @@ If you use `rmlnomogram` in your research, please consider citing it:
 
 ## Contact
 
-For questions or support, please contact herdi[at]tmu.edu.tw.
+For questions or support, please contact herdi[at]nycu.edu.tw.
 
 
 # Programming Environment
