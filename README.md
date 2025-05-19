@@ -1,6 +1,10 @@
 # rmlnomogram: An R package to construct an explainable nomogram for any machine learning algorithms
 
-`rmlnomogram` is an R package designed to construct an explainable nomogram for a machine learning (ML) model to improve availability of an ML prediction model in addition to a computer application, particularly in a situation where a computer, a mobile phone, an internet connection, or the application accessibility are unreliable. This package enables a nomogram creation for any ML prediction models, which is conventionally limited to only a linear/logistic regression model. This nomogram may indicate the explainability value per feature, e.g., the Shapley additive explanation value, for each individual. However, this package only allows a nomogram creation for a model using categorical without or with single numerical predictors.
+![CRAN Version](https://www.r-pkg.org/badges/version/rmlnomogram)
+![CRAN Downloads](https://cranlogs.r-pkg.org/badges/grand-total/rmlnomogram)
+![Monthly Downloads](https://cranlogs.r-pkg.org/badges/last-month/rmlnomogram)
+
+`rmlnomogram` is an R package designed to construct an explainable nomogram for a machine learning (ML) model to improve availability of an ML prediction model in addition to a computer application, particularly in a situation where a computer, a mobile phone, an internet connection, or the application accessibility are unreliable. This package enables a nomogram creation for any ML prediction models, which is conventionally limited to only a linear/logistic regression model. This nomogram may indicate the explainability value per feature, e.g., the Shapley additive explanation value, for each individual. However, this package only allows a nomogram creation for a model using categorical without or with single numerical predictors (https://doi.org/10.48550/arXiv.2501.05772).
 
 
 ## Features
@@ -120,15 +124,18 @@ Explore detailed examples and methodologies in the following vignettes:
 If you use `rmlnomogram` in your research, please consider citing it:
 
 ```bibtex
-@misc{rmlnomogram2025,
+@article{rmlnomogram2025,
   author = {Herdiantri Sufriyana and Emily Chia-Yu Su},
   title = {rmlnomogram: An R package to construct an explainable nomogram for any machine learning algorithms},
   year = {2025},
-  publisher = {GitHub},
-  journal = {GitHub repository},
-  howpublished = {\\url{https://github.com/herdiantrisufriyana/rmlnomogram}}
+  journal = {arXiv preprint},
+  volume = {arXiv:2501.05772},
+  doi = {10.48550/arXiv.2501.05772},
+  url = {https://doi.org/10.48550/arXiv.2501.05772}
 }
 ```
+
+Preprint of an article published in the 20th World Congress on Medical and Health Informatics: MedInfo 2025.
 
 
 ## Contact
